@@ -25,7 +25,7 @@ create_pr() {
     local branch_name=$2
     local pr_title=$3
     local pr_body=$4
-    gh pr create --repo "$target_repo" --head "$branch_name" --title "$pr_title" --body "$pr_body" --reviewer "jplayout/jplayout"
+    gh pr create --repo "$target_repo" --head "$branch_name" --title "$pr_title" --body "$pr_body" --reviewer "jplayout"
 }
 git config --global merge.conflictstyle diff3
 
