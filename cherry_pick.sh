@@ -33,7 +33,8 @@ if [ -z "${commits}" ]; then
     echo "No missing commits found."
     exit 0
 fi
-printf "Missing commits from %s branch: \n%s" "${SOURCE_BRANCH}" "${commits}" 
+printf "Missing commits from %s branch: \n%s" "${SOURCE_BRANCH}" "${commits}"
+printf "\n"
 
 # Select commits to include in the PR
 read -rp "Enter the commit hashes to include in the PR (space-separated): " selected_commits
@@ -46,12 +47,18 @@ git -C "${TARGET_REPO}" checkout -b "${branch_name}"
 git -C "${TARGET_REPO}" fetch "https://github.com/${SOURCE_REPO}.git"
 
 # Cherry-pick selected commits
-for commit in $selected_commits; do
-    echo "Attempting to cherry-pick commit $commit..."
+for commit in ${selected_commits}; do
+    echo "Attempting to cherry-pick commit ${commit}..."
     git -C "${TARGET_REPO}" cherry-pick "${commit}" || {
-        echo "Cherry-pick failed due to conflicts, skipping to next commit..."
-        git -C "${TARGET_REPO}" add -A  # Stage the conflicting files (this will indicate a merge conflict)
-        git -C "${TARGET_REPO}" commit --amend --no-edit  # Amend the commit to mark it as conflicted
+        echo "Cherry-pick failed due to conflicts, leaving conflict for reviewer..."
+
+        # Stage the conflicting files, but don't commit
+        git -C "${TARGET_REPO}" add -A  # Stage the conflicting files
+
+        # Annotate the conflict in the file with the commit hash
+        for file in $(git -C "${TARGET_REPO}" diff --name-only --diff-filter=U); do
+            echo "Conflict detected in file $file due to commit $commit" >> "$file"
+        done
     }
 done
 
@@ -59,10 +66,10 @@ done
 git -C "${TARGET_REPO}" push origin "${branch_name}"
 
 #PR creation
-pr_title="[CHERRY PICK]Commits from ${SOURCE_REPO} to ${TARGET_REPO}"
-pr_body="PR generated to cherry pick those commits"
+pr_title="[CHERRY PICK] Commits from ${SOURCE_REPO} to ${TARGET_REPO}"
+pr_body="PR generated to cherry-pick these commits. Conflicts may exist and need to be resolved manually.\n\n"
 for commit in ${selected_commits}; do
-    pr_body+="\n${commit}"
+    pr_body+="\nCommit: ${commit}\nConflicts will be marked in the files with the corresponding commit number."
 done
 pr_body+="\nFrom ${SOURCE_REPO} to ${TARGET_REPO}"
 gh pr create --repo "${TARGET_REPO}"  --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" --reviewer "jplayout"
