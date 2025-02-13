@@ -49,28 +49,33 @@ git -C "${TARGET_REPO}" fetch "https://github.com/${SOURCE_REPO}.git"
 # Cherry-pick selected commits
 for commit in ${selected_commits}; do
     echo "Attempting to cherry-pick commit ${commit}..."
-    git -C "${TARGET_REPO}" cherry-pick "${commit}" || {
+    
+    # Try to cherry-pick the commit
+    if ! git -C "${TARGET_REPO}" cherry-pick "${commit}"; then
         echo "Cherry-pick failed due to conflicts, leaving conflict for reviewer..."
-
         # Stage the conflicting files, but don't commit
         git -C "${TARGET_REPO}" add -A  # Stage the conflicting files
 
         # Annotate the conflict in the file with the commit hash
         for file in $(git -C "${TARGET_REPO}" diff --name-only --diff-filter=U); do
-            echo "Conflict detected in file $file due to commit $commit" >> "$file"
+            echo "Conflict detected in file ${file} due to commit ${commit}" >> "${file}"
         done
-    }
+        
+        # Commit the conflict for review
+        git -C "${TARGET_REPO}" commit -m "Cherry-pick commit ${commit} with conflict markers"
+    fi
 done
 
-# Push the new branch to the target repo
+# Push the branch to the remote repository
 git -C "${TARGET_REPO}" push origin "${branch_name}"
 
-#PR creation
+# Create the PR using GitHub CLI
 pr_title="[CHERRY PICK] Commits from ${SOURCE_REPO} to ${TARGET_REPO}"
-pr_body="PR generated to cherry-pick these commits. Conflicts may exist and need to be resolved manually.\n\n"
-for commit in ${selected_commits}; do
-    pr_body+="\nCommit: ${commit}\nConflicts will be marked in the files with the corresponding commit number."
-done
-pr_body+="\nFrom ${SOURCE_REPO} to ${TARGET_REPO}"
-gh pr create --repo "${TARGET_REPO}"  --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" --reviewer "jplayout"
+pr_body="PR generated to cherry-pick these commits. Conflicts may exist and need to be resolved manually.
+From ${SOURCE_REPO} to ${TARGET_REPO}"
+
+# Create the PR
+echo "Creating PR..."
+gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" --reviewer "jplayout"
+
 echo "Pull request created successfully!"
