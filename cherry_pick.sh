@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eEu -o pipefail
+set -eEux -o pipefail
 
 : "${SOURCE_REPO?"ERROR: SOURCE_REPO undefined"}"
 : "${SOURCE_BRANCH?"ERROR: SOURCE_BRANCH undefined"}"
@@ -79,15 +79,13 @@ pr_title="[CHERRY PICK] Commits from ${SOURCE_REPO} to ${TARGET_REPO}"
 pr_body="PR generated to cherry-pick these commits. Conflicts may exist and need to be resolved manually.
 From ${SOURCE_REPO} to ${TARGET_REPO}"
 
-# Handle reviewers (if any) passed as a parameter
-if [ -z "${REVIEWERS:-}" ]; then
-    reviewers_param=""  # No reviewers
-else
-    reviewers_param="--reviewer ${REVIEWERS}"  # Reviewers parameter
-fi
-
 # Create the PR
 echo "Creating PR..."
-gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" "${reviewers_param}"
+# Handle reviewers (if any) passed as a parameter
+if [ -z "${REVIEWERS:-}" ]; then
+    gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}"
+else
+    gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" --reviewer "${REVIEWERS}"
+fi
 
 echo "Pull request created successfully!"
