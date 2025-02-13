@@ -26,18 +26,22 @@ if ! git -C "${SOURCE_REPO}" remote | grep -q "target-repo"; then
 fi
 git -C "${SOURCE_REPO}" fetch target-repo
 
-# Get missing commits
-echo "Fetching commits that are in the source repo but not in the target repo..."
-commits=$(git -C "${SOURCE_REPO}" log --oneline "${SOURCE_BRANCH}")
-if [ -z "${commits}" ]; then
-    echo "No missing commits found."
-    exit 0
+# If a list of commits is provided as a parameter, use it. Otherwise, ask for input.
+if [ $# -gt 0 ]; then
+    selected_commits="$@"
+else
+    # Get missing commits
+    echo "Fetching commits that are in the source repo but not in the target repo..."
+    commits=$(git -C "${SOURCE_REPO}" log --oneline "${SOURCE_BRANCH}")
+    if [ -z "${commits}" ]; then
+        echo "No missing commits found."
+        exit 0
+    fi
+    printf "Missing commits from %s branch: \n%s" "${SOURCE_BRANCH}" "${commits}"
+    printf "\n"
+    # Select commits to include in the PR
+    read -rp "Enter the commit hashes to include in the PR (space-separated): " selected_commits
 fi
-printf "Missing commits from %s branch: \n%s" "${SOURCE_BRANCH}" "${commits}"
-printf "\n"
-
-# Select commits to include in the PR
-read -rp "Enter the commit hashes to include in the PR (space-separated): " selected_commits
 
 # Create a new branch in the target repo
 branch_name="pr-$(date +%Y%m%d%H%M%S)"
