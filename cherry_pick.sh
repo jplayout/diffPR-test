@@ -5,6 +5,7 @@ set -eEu -o pipefail
 : "${SOURCE_REPO?"ERROR: SOURCE_REPO undefined"}"
 : "${SOURCE_BRANCH?"ERROR: SOURCE_BRANCH undefined"}"
 : "${TARGET_REPO?"ERROR: USER_NAME undefined"}"
+: "${REVIEWERS?"ERROR: REVIEWERS undefined"}"
 
 clone_repo() {
     if [ ! -d "${2}" ]; then
@@ -28,7 +29,7 @@ git -C "${SOURCE_REPO}" fetch target-repo
 
 # If a list of commits is provided as a parameter, use it. Otherwise, ask for input.
 if [ $# -gt 0 ]; then
-    selected_commits="$@"
+    selected_commits="$*"
 else
     # Get missing commits
     echo "Fetching commits that are in the source repo but not in the target repo..."
@@ -78,8 +79,15 @@ pr_title="[CHERRY PICK] Commits from ${SOURCE_REPO} to ${TARGET_REPO}"
 pr_body="PR generated to cherry-pick these commits. Conflicts may exist and need to be resolved manually.
 From ${SOURCE_REPO} to ${TARGET_REPO}"
 
+# Handle reviewers (if any) passed as a parameter
+if [ -z "${REVIEWERS:-}" ]; then
+    reviewers_param=""  # No reviewers
+else
+    reviewers_param="--reviewer ${REVIEWERS}"  # Reviewers parameter
+fi
+
 # Create the PR
 echo "Creating PR..."
-gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" --reviewer "jplayout"
+gh pr create --repo "${TARGET_REPO}" --head "${branch_name}" --title "${pr_title}" --body "${pr_body}" "${reviewers_param}"
 
 echo "Pull request created successfully!"
